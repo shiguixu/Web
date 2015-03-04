@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xmlns:tx="http://www.springframework.org/schema/tx"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd">
+	<!-- 数据连接池 -->
+	<bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+        <property name="url" value="jdbc:sqlserver://127.0.0.1:1433;database=SSMMONEY"/>
+        <property name="username" value="sa"/>
+        <property name="password" value="123456"/>
+    </bean>
+    
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="myDataSource"/>
+    </bean>
+    
+    <tx:advice id="txAdvice" transaction-manager="txManager">
+    	 <tx:attributes>
+		  <tx:method name="add*" propagation="REQUIRED" /> 
+		 <!--  所有以add开头的方法，都必须在一个事务中执行  --> 
+		  <tx:method name="remove*" propagation="REQUIRED" /> 
+		  <tx:method name="modify*" propagation="REQUIRED" /> 
+		  <tx:method name="get*" read-only="true" /> 
+		 <!--  所以以get开头的方法，都必须只读，也就是不能做增、删、改操作 --> 
+ 	 </tx:attributes>
+  </tx:advice>
+ <aop:config>
+	 <!--  配置切入点 ，expression是一种aspectj语法的表达式 --> 
+	  <aop:pointcut id="allServiceMethod" expression="execution(* service.*.*(..))" /> 
+	 <!--  配置通知 --> 
+	  <aop:advisor advice-ref="txAdvice" pointcut-ref="allServiceMethod" /> 
+  </aop:config>
+    
+    
+	<!--  工厂层-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="myDataSource"/>
+    </bean>
+	<!-- 数据访问层 -->
+	<bean	id="userDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
+  		<property name="sqlSessionFactory" ref="sqlSessionFactory" />
+  		<property name="mapperInterface" value="dao.UserDao" />
+	</bean>
+	<!--业务层部分  -->
+	<bean id="userService"	class="service.UserService">
+		<property name="userDao" ref="userDao"/>
+	</bean>
+	
+	
+    <bean id="userAction" class="web.UserAction" scope="prototype">
+		<property name="userService" ref="userService"></property>
+    </bean>
+
+	
+	
+</beans>
